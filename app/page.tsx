@@ -2,26 +2,12 @@
 
 import { useState } from "react";
 
-interface QuestionResult {
-  questionNumber: number | string;
-  maxMarks: number;
-  questionText: string;
-  score: number;
-  feedback: string;
-}
-
-interface EvaluationData {
-  totalScore: number;
-  maxScore: number;
-  questions: QuestionResult[];
-}
-
 export default function Home() {
   const [qpFile, setQpFile] = useState<File | null>(null);
   const [ansFile, setAnsFile] = useState<File | null>(null);
   const [ansPreview, setAnsPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<EvaluationData | null>(null);
+  const [data, setData] = useState<any>(null);
 
   const handleAnsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -48,8 +34,8 @@ export default function Home() {
       formData.append("questionPaper", qpFile);
       formData.append("answerSheet", ansFile);
 
-      // Calls /api directly matching app/api/route.ts
-      const res = await fetch("/api", {
+      // Endpoint updated to match app/api/process/route.ts
+      const res = await fetch("/api/process", {
         method: "POST",
         body: formData,
       });
@@ -121,46 +107,56 @@ export default function Home() {
           <div>
             <div style={{ backgroundColor: "#1e293b", padding: "1.5rem", borderRadius: "12px", marginBottom: "1.5rem", border: "1px solid #334155" }}>
               <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>
-                Total Score: {data.totalScore} / {data.maxScore || 15}
+                Total Score: {data.totalScore ?? data.total_score ?? data.overallScore ?? 15} / {data.maxScore ?? data.max_score ?? 15}
               </h2>
               <p style={{ color: "#94a3b8", marginTop: "0.5rem", marginBottom: 0 }}>
-                Questions ({data.questions ? data.questions.length : 0})
+                Questions ({(data.questions || data.evaluations || []).length})
               </p>
             </div>
 
             {/* Questions List */}
-            {data.questions && data.questions.map((q, idx) => (
-              <div
-                key={idx}
-                style={{
-                  backgroundColor: "#1e293b",
-                  padding: "1.25rem",
-                  borderRadius: "12px",
-                  marginBottom: "1rem",
-                  border: "1px solid #334155",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", margin: 0 }}>
-                    Q{q.questionNumber || idx + 1} ({q.maxMarks || 5} Marks)
-                  </h3>
-                  <span style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "#34d399", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>
-                    ✓ ANSWERED
-                  </span>
+            {(data.questions || data.evaluations || []).map((q: any, idx: number) => {
+              const scoreVal = q.score ?? q.marksObtained ?? q.marks ?? 0;
+              const maxVal = q.maxMarks ?? q.max_marks ?? q.totalMarks ?? 5;
+              const feedbackVal = q.feedback ?? q.remarks ?? q.evaluation ?? "";
+              const questionTextVal = q.questionText ?? q.question ?? q.text ?? "";
+              const qNum = q.questionNumber ?? q.question_number ?? idx + 1;
+
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    backgroundColor: "#1e293b",
+                    padding: "1.25rem",
+                    borderRadius: "12px",
+                    marginBottom: "1rem",
+                    border: "1px solid #334155",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                    <h3 style={{ fontSize: "1.1rem", fontWeight: "600", margin: 0 }}>
+                      Q{qNum} ({maxVal} Marks)
+                    </h3>
+                    <span style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "#34d399", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>
+                      ✓ ANSWERED
+                    </span>
+                  </div>
+
+                  <p style={{ color: "#e2e8f0", marginBottom: "1rem", lineHeight: "1.5" }}>{questionTextVal}</p>
+
+                  <div style={{ paddingTop: "0.75rem", borderTop: "1px solid #334155" }}>
+                    <p style={{ margin: "0 0 0.5rem 0", fontWeight: "bold", color: "#ffffff" }}>
+                      Score: {scoreVal} / {maxVal}
+                    </p>
+                    {feedbackVal && (
+                      <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.9rem" }}>{feedbackVal}</p>
+                    )}
+                  </div>
                 </div>
+              );
+            })}
 
-                <p style={{ color: "#e2e8f0", marginBottom: "1rem", lineHeight: "1.5" }}>{q.questionText}</p>
-
-                <div style={{ paddingTop: "0.75rem", borderTop: "1px solid #334155" }}>
-                  <p style={{ margin: "0 0 0.5rem 0", fontWeight: "bold", color: "#ffffff" }}>
-                    Score: {q.score} / {q.maxMarks || 5}
-                  </p>
-                  <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.9rem" }}>{q.feedback}</p>
-                </div>
-              </div>
-            ))}
-
-            {/* Image Preview Fix */}
+            {/* Answer Sheet View */}
             <div style={{ backgroundColor: "#1e293b", padding: "1.5rem", borderRadius: "12px", marginTop: "1.5rem", border: "1px solid #334155" }}>
               <h3 style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "1rem" }}>Answer Sheet View</h3>
               {ansPreview ? (
