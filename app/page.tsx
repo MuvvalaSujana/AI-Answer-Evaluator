@@ -23,7 +23,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<EvaluationData | null>(null);
 
-  // Convert uploaded image file to previewable Base64
   const handleAnsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setAnsFile(file);
@@ -49,7 +48,8 @@ export default function Home() {
       formData.append("questionPaper", qpFile);
       formData.append("answerSheet", ansFile);
 
-      const res = await fetch("/api/evaluate", {
+      // Calls /api directly matching app/api/route.ts
+      const res = await fetch("/api", {
         method: "POST",
         body: formData,
       });
@@ -66,106 +66,119 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 tracking-tight text-white">
-        AI Answer Evaluator
-      </h1>
+    <main style={{ minHeight: "100vh", backgroundColor: "#090d16", color: "#f1f5f9", padding: "2rem", fontFamily: "sans-serif" }}>
+      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+        <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "1.5rem" }}>
+          AI Answer Evaluator
+        </h1>
 
-      {/* File Upload Section */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-8 space-y-4">
-        <h2 className="text-xl font-semibold text-slate-200">Upload Assessment Files</h2>
+        {/* Upload Form */}
+        <div style={{ backgroundColor: "#1e293b", padding: "1.5rem", borderRadius: "12px", marginBottom: "2rem", border: "1px solid #334155" }}>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginBottom: "1rem" }}>Upload Assessment Files</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-slate-300">
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", color: "#cbd5e1" }}>
               Question Paper (PDF/Images)
             </label>
             <input
               type="file"
               onChange={(e) => setQpFile(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+              style={{ color: "#94a3b8" }}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1 text-slate-300">
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", color: "#cbd5e1" }}>
               Student Answer Sheet (PDF/Images)
             </label>
             <input
               type="file"
               onChange={handleAnsFileChange}
-              className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+              style={{ color: "#94a3b8" }}
             />
           </div>
+
+          <button
+            onClick={handleProcess}
+            disabled={loading}
+            style={{
+              backgroundColor: "#2563eb",
+              color: "#ffffff",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "8px",
+              border: "none",
+              fontWeight: "600",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? "Processing Assessment..." : "Process Assessment"}
+          </button>
         </div>
 
-        <button
-          onClick={handleProcess}
-          disabled={loading}
-          className="mt-4 w-full md:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition disabled:opacity-50"
-        >
-          {loading ? "Processing Assessment..." : "Process Assessment"}
-        </button>
-      </div>
+        {/* Results Section */}
+        {data && (
+          <div>
+            <div style={{ backgroundColor: "#1e293b", padding: "1.5rem", borderRadius: "12px", marginBottom: "1.5rem", border: "1px solid #334155" }}>
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>
+                Total Score: {data.totalScore} / {data.maxScore || 15}
+              </h2>
+              <p style={{ color: "#94a3b8", marginTop: "0.5rem", marginBottom: 0 }}>
+                Questions ({data.questions ? data.questions.length : 0})
+              </p>
+            </div>
 
-      {/* Results Display Section */}
-      {data && (
-        <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Total Score: {data.totalScore} / {data.maxScore || 15}
-            </h2>
-            <p className="text-slate-400">Questions ({data.questions.length})</p>
-          </div>
-
-          <div className="space-y-4">
-            {data.questions.map((q, idx) => (
+            {/* Questions List */}
+            {data.questions && data.questions.map((q, idx) => (
               <div
                 key={idx}
-                className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-3"
+                style={{
+                  backgroundColor: "#1e293b",
+                  padding: "1.25rem",
+                  borderRadius: "12px",
+                  marginBottom: "1rem",
+                  border: "1px solid #334155",
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg text-white">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", margin: 0 }}>
                     Q{q.questionNumber || idx + 1} ({q.maxMarks || 5} Marks)
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "#34d399", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>
                     ✓ ANSWERED
                   </span>
                 </div>
 
-                <p className="text-slate-300">{q.questionText}</p>
+                <p style={{ color: "#e2e8f0", marginBottom: "1rem", lineHeight: "1.5" }}>{q.questionText}</p>
 
-                <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="font-bold text-white min-w-[100px]">
+                <div style={{ paddingTop: "0.75rem", borderTop: "1px solid #334155" }}>
+                  <p style={{ margin: "0 0 0.5rem 0", fontWeight: "bold", color: "#ffffff" }}>
                     Score: {q.score} / {q.maxMarks || 5}
-                  </span>
-                  <span className="text-slate-400 text-sm">{q.feedback}</span>
+                  </p>
+                  <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.9rem" }}>{q.feedback}</p>
                 </div>
               </div>
             ))}
-          </div>
 
-          {/* Answer Sheet View & Highlighting */}
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 mt-8">
-            <h2 className="text-xl font-bold text-white">Answer Sheet View</h2>
-            
-            {ansPreview ? (
-              <div className="space-y-2">
-                <span className="text-sm text-slate-400 block font-medium">Page 1</span>
-                <img
-                  src={ansPreview}
-                  alt="Student Answer Sheet Page 1"
-                  className="w-full max-w-2xl rounded-lg border border-slate-800 object-contain max-h-[600px]"
-                />
-              </div>
-            ) : (
-              <div className="p-6 border border-dashed border-slate-800 rounded-lg text-center text-slate-500">
-                Uploaded document format is PDF or image preview unavailable.
-              </div>
-            )}
+            {/* Image Preview Fix */}
+            <div style={{ backgroundColor: "#1e293b", padding: "1.5rem", borderRadius: "12px", marginTop: "1.5rem", border: "1px solid #334155" }}>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "1rem" }}>Answer Sheet View</h3>
+              {ansPreview ? (
+                <div>
+                  <p style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.5rem" }}>Page 1</p>
+                  <img
+                    src={ansPreview}
+                    alt="Student Answer Sheet Page 1"
+                    style={{ maxWidth: "100%", height: "auto", borderRadius: "8px", border: "1px solid #334155" }}
+                  />
+                </div>
+              ) : (
+                <p style={{ color: "#64748b", margin: 0 }}>Answer sheet uploaded as document/PDF (image preview omitted).</p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   );
 }
