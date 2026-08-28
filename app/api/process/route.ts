@@ -1,101 +1,80 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-// Helper to convert uploaded files to Gemini inlineData objects
-async function fileToGenerativePart(file: File) {
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  
-  // Default to image/png if mimeType is missing or unrecognized
-  let mimeType = file.type;
-  if (!mimeType || mimeType === "application/octet-stream") {
-    if (file.name.endsWith(".png")) mimeType = "image/png";
-    else if (file.name.endsWith(".jpg") || file.name.endsWith(".jpeg")) mimeType = "image/jpeg";
-    else if (file.name.endsWith(".webp")) mimeType = "image/webp";
-    else mimeType = "image/png"; 
-  }
-
-  return {
-    inlineData: {
-      data: buffer.toString("base64"),
-      mimeType,
-    },
-  };
-}
-
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const qpFiles = formData.getAll("questionPaper") as File[];
-    const ansFiles = formData.getAll("answerSheet") as File[];
-
-    if (!qpFiles.length || !ansFiles.length) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
-        { error: "Please upload both question paper and answer sheet." },
+        { error: "GEMINI_API_KEY is not configured in environment variables." },
+        { status: 500 }
+      );
+    }
+
+    const formData = await req.formData();
+    const questionPaper = formData.get("questionPaper") as File | null;
+    const answerSheet = formData.get("answerSheet") as File | null;
+
+    if (!questionPaper || !answerSheet) {
+      return NextResponse.json(
+        { error: "Both questionPaper and answerSheet files are required." },
         { status: 400 }
       );
     }
 
-    // Convert all uploaded files into generative inline parts
-    const qpParts = await Promise.all(qpFiles.map(fileToGenerativePart));
-    const ansParts = await Promise.all(ansFiles.map(fileToGenerativePart));
+    // Convert uploaded files to base64 buffers
+    const qpBuffer = Buffer.from(await questionPaper.arrayBuffer());
+    const ansBuffer = Buffer.from(await answerSheet.arrayBuffer());
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: { responseMimeType: "application/json" },
-    });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Updated to gemini-3.6-flash
+    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
 
     const prompt = `
-      You are an automated assessment evaluator. Analyze the attached Question Paper image(s) and Student Answer Sheet image(s).
-      
-      Extract all questions from the Question Paper. Then locate, map, and grade the student's handwritten/typed answers from the Answer Sheet.
-
-      Return ONLY a JSON object strictly matching this schema:
-      {
-        "questions": [
-          {
-            "id": "q1",
-            "qNumber": "1",
-            "questionText": "Question text here",
-            "maxMarks": 5
-          }
-        ],
-        "evaluations": [
-          {
-            "questionId": "q1",
-            "status": "ANSWERED",
-            "studentAnswerText": "Extracted answer text",
-            "awardedMarks": 5,
-            "feedback": "Short evaluation feedback",
-            "regions": [
-              {
-                "pageIndex": 1,
-                "box2d": [100, 100, 400, 900]
-              }
-            ]
-          }
-        ]
-      }
-      
-      Note: 'box2d' must be normalized coordinates [ymin, xmin, ymax, xmax] from 0 to 1000 representing the bounding box of where the answer appears on the answer sheet page.
+    You are an AI exam evaluator. Compare the Student Answer Sheet against the Question Paper.
+    Analyze each question, evaluate the correctness of the student's answer, assign marks, and provide short feedback.
+    
+    Return ONLY a valid raw JSON object matching this exact structure (no markdown formatting, no code blocks):
+    {
+      "totalScore": 15,
+      "maxScore": 15,
+      "questions": [
+        {
+          "questionNumber": 1,
+          "questionText": "Question text here",
+          "score": 5,
+          "maxMarks": 5,
+          "feedback": "Feedback here"
+        }
+      ]
+    }
     `;
 
-    const response = await model.generateContent([
+    const result = await model.generateContent([
       prompt,
-      ...qpParts,
-      ...ansParts,
+      {
+        inlineData: {
+          data: qpBuffer.toString("base64"),
+          mimeType: questionPaper.type || "application/pdf",
+        },
+      },
+      {
+        inlineData: {
+          data: ansBuffer.toString("base64"),
+          mimeType: answerSheet.type || "application/pdf",
+        },
+      },
     ]);
 
-    const resultText = response.response.text();
-    const parsedData = JSON.parse(resultText);
+    const responseText = await result.response.text();
+    const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsedData = JSON.parse(cleanJson);
 
     return NextResponse.json(parsedData);
-  } catch (error: any) {
-    console.error("Evaluation Error:", error);
+  } catch (err: any) {
     return NextResponse.json(
-      { error: error?.message || "Internal server error during evaluation." },
+      { error: err.message || "Failed to process assessment." },
       { status: 500 }
     );
   }
