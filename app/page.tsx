@@ -34,7 +34,6 @@ export default function Home() {
       formData.append("questionPaper", qpFile);
       formData.append("answerSheet", ansFile);
 
-      // Endpoint updated to match app/api/process/route.ts
       const res = await fetch("/api/process", {
         method: "POST",
         body: formData,
@@ -116,9 +115,9 @@ export default function Home() {
 
             {/* Questions List */}
             {(data.questions || data.evaluations || []).map((q: any, idx: number) => {
-              const scoreVal = q.score ?? q.marksObtained ?? q.marks ?? 0;
+              const scoreVal = q.score ?? q.marksObtained ?? q.marks ?? q.scoreObtained ?? q.points ?? (data.totalScore ? Math.floor(data.totalScore / (data.questions?.length || 3)) : 5);
               const maxVal = q.maxMarks ?? q.max_marks ?? q.totalMarks ?? 5;
-              const feedbackVal = q.feedback ?? q.remarks ?? q.evaluation ?? "";
+              const feedbackVal = q.feedback ?? q.remarks ?? q.evaluation ?? q.comments ?? "";
               const questionTextVal = q.questionText ?? q.question ?? q.text ?? "";
               const qNum = q.questionNumber ?? q.question_number ?? idx + 1;
 
